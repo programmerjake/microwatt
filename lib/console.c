@@ -5,7 +5,9 @@
 #include "microwatt_soc.h"
 #include "io.h"
 
+#ifndef UART_BAUDS
 #define UART_BAUDS 115200
+#endif
 
 /*
  * Core UART functions to implement for a port
@@ -145,6 +147,15 @@ int getchar(void)
 		while (potato_uart_rx_empty())
 			/* Do nothing */ ;
 		return potato_uart_read();
+	}
+}
+
+bool console_havechar(void)
+{
+	if (uart_is_std) {
+		return !std_uart_rx_empty();
+	} else {
+		return !potato_uart_rx_empty();
 	}
 }
 
