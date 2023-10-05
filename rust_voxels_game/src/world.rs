@@ -24,6 +24,7 @@ pub struct World {
     pub blocks: [[[Block; Self::SIZE]; Self::SIZE]; Self::SIZE],
 }
 
+#[derive(Copy, Clone, Debug)]
 struct RayCastDimension {
     next_pos: i64,
     next_t: Fix64,
@@ -32,6 +33,18 @@ struct RayCastDimension {
 }
 
 impl RayCastDimension {
+    const fn at_inf(pos: i64) -> Self {
+        Self {
+            next_pos: pos,
+            next_t: Fix64::from_bits(i64::MAX),
+            t_step: Fix64::from_int(0),
+            pos_step: 0,
+        }
+    }
+    const fn is_at_inf(self) -> bool {
+        self.pos_step == 0
+    }
+    #[inline(always)]
     fn new(start: Fix64, dir: Fix64) -> Option<Self> {
         let pos_step = dir.signum();
         if pos_step == 0 {
@@ -259,6 +272,7 @@ impl World {
         let array_pos = Self::array_pos(pos);
         self.get_array_mut(array_pos)
     }
+    #[inline(always)]
     pub fn get(&self, pos: Vec3D<i64>) -> Option<&Block> {
         let array_pos = Self::array_pos(pos);
         self.get_array(array_pos)
@@ -271,6 +285,7 @@ impl World {
     pub fn positions() -> impl Iterator<Item = Vec3D<i64>> {
         Self::array_positions().map(Self::from_array_pos)
     }
+    #[inline(never)]
     fn cast_ray_impl(
         &self,
         start: Vec3D<Fix64>,
@@ -283,30 +298,37 @@ impl World {
             };
             f(pos, block)
         };
-        let mut pos = start.map(Fix64::floor).into_array();
+        let pos = start.map(Fix64::floor);
         let mut ray_casters = start
             .zip(dir)
-            .map(|(start, dir)| RayCastDimension::new(start, dir))
+            .zip(pos)
+            .map(
+                #[inline(always)]
+                |((start, dir), pos)| {
+                    RayCastDimension::new(start, dir).unwrap_or(RayCastDimension::at_inf(pos))
+                },
+            )
             .into_array();
+        let mut pos = pos.into_array();
+        if ray_casters[0].is_at_inf() && ray_casters[1].is_at_inf() && ray_casters[2].is_at_inf() {
+            return ControlFlow::Break(());
+        }
         loop {
             f(Vec3D::from_array(pos))?;
-            let mut min_index = None;
-            let mut min_t = Fix64::from_bits(i64::MAX);
-            for (index, ray_caster) in ray_casters.iter().enumerate() {
-                let Some(ray_caster) = ray_caster else {
-                    continue;
+            macro_rules! do_step_at_min {
+                ($ray_casters:ident, $pos:ident, [$index:literal]) => {
+                    $pos[$index] = $ray_casters[$index].next_pos;
+                    $ray_casters[$index].step();
                 };
-                if ray_caster.next_t < min_t {
-                    min_t = ray_caster.next_t;
-                    min_index = Some(index);
-                }
+                ($ray_casters:ident, $pos:ident, [$index0:literal, $index1:literal $(, $rest:literal)*]) => {
+                    if $ray_casters[$index1].next_t < $ray_casters[$index0].next_t {
+                        do_step_at_min!($ray_casters, $pos, [$index1 $(, $rest)*]);
+                    } else {
+                        do_step_at_min!($ray_casters, $pos, [$index0 $(, $rest)*]);
+                    }
+                };
             }
-            let Some(min_index) = min_index else {
-                return ControlFlow::Break(());
-            };
-            let ray_caster = ray_casters[min_index].as_mut().unwrap();
-            pos[min_index] = ray_caster.next_pos;
-            ray_caster.step();
+            do_step_at_min!(ray_casters, pos, [0, 1, 2]);
         }
     }
     pub fn cast_ray(

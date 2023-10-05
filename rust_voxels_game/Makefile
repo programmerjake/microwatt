@@ -1,4 +1,4 @@
-.PHONY: all run size dump emu clean
+.PHONY: all run size dump emu emu_full_speed clean
 
 ARCH = $(shell uname -m)
 ifneq ("$(ARCH)", "ppc64")
@@ -46,6 +46,9 @@ rust_voxels_game.hex: rust_voxels_game.bin
 
 emu:
 	cargo run --release
+
+emu_full_speed:
+	cargo run --release --features=hosted_full_speed
 
 clean:
 	cargo clean

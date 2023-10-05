@@ -19,6 +19,7 @@ minetest-schematic = { path = "minetest-schematic" }
 embedded = []
 hosted = ["dep:termios", "dep:libc"]
 default = ["hosted"]
+hosted_full_speed = ["hosted"]
 
 [profile.release]
 panic = "abort"

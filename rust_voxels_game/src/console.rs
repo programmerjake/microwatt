@@ -78,7 +78,7 @@ fn console_write(b: u8) {
     }
 }
 
-#[cfg(feature = "hosted")]
+#[cfg(all(feature = "hosted", not(feature = "hosted_full_speed")))]
 fn console_write(b: u8) {
     use core::{
         sync::atomic::{AtomicU32, Ordering},
@@ -109,6 +109,13 @@ fn console_write(b: u8) {
         *last_sleep = target;
         SLEEP_COUNTER.fetch_sub(sleep_counter, Ordering::Relaxed);
     }
+
+    let _ = std::io::stdout().write_all(&[b]);
+}
+
+#[cfg(feature = "hosted_full_speed")]
+fn console_write(b: u8) {
+    use std::io::Write;
 
     let _ = std::io::stdout().write_all(&[b]);
 }

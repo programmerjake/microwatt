@@ -1,8 +1,9 @@
-#[cfg(feature = "hosted")]
-use core::fmt;
-use core::ops::{
-    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Shl, ShlAssign, Shr,
-    ShrAssign, Sub, SubAssign,
+use core::{
+    fmt,
+    ops::{
+        Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Shl, ShlAssign, Shr,
+        ShrAssign, Sub, SubAssign,
+    },
 };
 
 macro_rules! impl_assign_op {
@@ -21,7 +22,6 @@ macro_rules! impl_assign_op {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Fix64(i64);
 
-#[cfg(feature = "hosted")]
 impl fmt::Display for Fix64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let frac_digits = (Fix64::FRAC_BITS + 3) / 4;
@@ -40,7 +40,6 @@ impl fmt::Display for Fix64 {
     }
 }
 
-#[cfg(feature = "hosted")]
 impl fmt::Debug for Fix64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
@@ -184,6 +183,7 @@ impl_assign_op!(MulAssign::mul_assign => Mul::mul);
 impl Div for Fix64 {
     type Output = Self;
 
+    #[inline(always)]
     fn div(self, rhs: Fix64) -> Self::Output {
         Fix64((((self.0 as i128) << Self::FRAC_BITS) / rhs.0 as i128) as i64)
     }

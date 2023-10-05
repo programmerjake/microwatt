@@ -114,8 +114,16 @@ pub extern "C" fn main() -> ! {
         world.render(screen, pos, forward, right, down);
         restore_cursor.map(|f| f(world));
         screen.display(console);
-        writeln!(console, "Press WASD to move, IJKL to change look dir, F to move down, R to move up").unwrap();
-        writeln!(console, "0-9 to place a block, - to delete a block, ESC to exit.").unwrap();
+        writeln!(
+            console,
+            "Press WASD to move, IJKL to change look dir, F to move down, R to move up"
+        )
+        .unwrap();
+        writeln!(
+            console,
+            "0-9 to place a block, - to delete a block, ESC to exit."
+        )
+        .unwrap();
         loop {
             let (prev_pos, hit_pos) = world.get_hit_pos(pos, forward);
             let mut new_pos = pos;
