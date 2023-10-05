@@ -1,5 +1,5 @@
 use crate::take_once::{AlreadyTaken, TakeOnce};
-use core::{cell::UnsafeCell, ffi::c_int, fmt};
+use core::{ffi::c_int, fmt};
 
 #[cfg(feature = "embedded")]
 extern "C" {
@@ -131,6 +131,8 @@ impl Console {
 
     #[cfg(feature = "embedded")]
     pub(crate) unsafe fn emergency_console() -> &'static mut Console {
+        use core::cell::UnsafeCell;
+
         struct EmergencyConsole(UnsafeCell<Console>);
 
         unsafe impl Sync for EmergencyConsole {}

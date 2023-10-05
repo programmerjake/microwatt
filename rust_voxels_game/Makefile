@@ -45,7 +45,7 @@ rust_voxels_game.hex: rust_voxels_game.bin
 	../scripts/bin2hex.py $^ > $@
 
 emu:
-	cargo run
+	cargo run --release
 
 clean:
 	cargo clean

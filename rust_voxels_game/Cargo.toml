@@ -12,6 +12,9 @@ panic = "abort"
 termios = { version = "0.3.3", optional = true }
 libc = { version = "0.2", optional = true }
 
+[build-dependencies]
+minetest-schematic = { path = "minetest-schematic" }
+
 [features]
 embedded = []
 hosted = ["dep:termios", "dep:libc"]
@@ -23,3 +26,9 @@ codegen-units = 1 # better optimizations
 opt-level = 'z'  # Optimize for size.
 debug = true # symbols are nice and they don't increase the size on Flash
 lto = true # better optimizations
+
+[workspace]
+members = [
+    ".",
+    "minetest-schematic",
+]

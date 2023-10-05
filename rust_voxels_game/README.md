@@ -48,7 +48,7 @@ pins going from the corner closest to the button:
 | 1                | UART RX | TX                           |
 | 2                | UART TX | RX                           |
 
-Then, in a separate terminal that you've resized to be at least 100x76, run
+Then, in a separate terminal that you've resized to be at least 100x41, run
 (replacing ttyUSB0 with whatever serial device the OrangeCrab is connected to):
 ```bash
 sudo tio --baudrate=1000000 /dev/ttyUSB0

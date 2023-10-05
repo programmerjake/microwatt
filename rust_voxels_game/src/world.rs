@@ -1,6 +1,6 @@
 use crate::{
     fixed::Fix64,
-    screen::{Color, Screen},
+    screen::{PackedColor, RgbColor, Screen},
     take_once::TakeOnce,
     vec::Vec3D,
 };
@@ -8,17 +8,15 @@ use core::ops::ControlFlow;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Block {
-    pub color: Color,
+    pub color: Option<PackedColor>,
 }
 
 impl Block {
     pub const fn is_empty(&self) -> bool {
-        self.color.0 == Color::default().0
+        self.color.is_none()
     }
     pub const fn default() -> Self {
-        Block {
-            color: Color::default(),
-        }
+        Block { color: None }
     }
 }
 
@@ -64,19 +62,84 @@ impl RayCastDimension {
 }
 
 impl World {
-    pub const SIZE: usize = 40;
+    pub const SIZE: usize = 50;
     pub const ARRAY_AXIS_ORIGIN: i64 = Self::SIZE as i64 / -2;
     pub const ARRAY_ORIGIN: Vec3D<i64> = Vec3D {
         x: Self::ARRAY_AXIS_ORIGIN,
         y: Self::ARRAY_AXIS_ORIGIN,
         z: Self::ARRAY_AXIS_ORIGIN,
     };
-    const fn init_block(pos: Vec3D<i64>) -> Block {
+    const fn init_block_schematic<const X_SIZE: usize, const Y_SIZE: usize, const Z_SIZE: usize>(
+        mut pos: Vec3D<i64>,
+        center_at: Vec3D<i64>,
+        schematic: &[[[Block; X_SIZE]; Y_SIZE]; Z_SIZE],
+    ) -> Option<Block> {
+        pos.x -= center_at.x;
+        pos.y -= center_at.y;
+        pos.z -= center_at.z;
+        let x = pos.x + X_SIZE as i64 / 2;
+        let y = pos.y + Y_SIZE as i64 / 2;
+        let z = pos.z + Z_SIZE as i64 / 2;
+        if x >= 0 && x < X_SIZE as i64 && y >= 0 && y < Y_SIZE as i64 && z >= 0 && z < Z_SIZE as i64
+        {
+            Some(schematic[z as usize][y as usize][x as usize])
+        } else {
+            None
+        }
+    }
+    const fn init_block(pos: Vec3D<i64>, array_pos: Vec3D<usize>) -> Block {
+        if let Some(block) = Self::init_block_schematic(
+            pos,
+            Vec3D { x: 0, y: 0, z: 0 },
+            crate::shapes::libre_soc_logo::SCHEMATIC,
+        ) {
+            return block;
+        }
         let mut block = Block {
-            color: Color((pos.x * 157 + pos.y * 246 + pos.z * 43 + 123) as u8),
+            color: Some(
+                RgbColor {
+                    r: (pos.x * 0xFF / Self::SIZE as i64 + 128) as u8,
+                    g: (pos.y * 0xFF / Self::SIZE as i64 + 128) as u8,
+                    b: (pos.z * 0xFF / Self::SIZE as i64 + 128) as u8,
+                }
+                .to_packed(),
+            ),
         };
-        const SPHERES: &[(Vec3D<i64>, i64, Color)] = &[
-            (Vec3D { x: 0, y: 0, z: 0 }, 10 * 10, Color::default()),
+        if array_pos.x > 0
+            && array_pos.x < Self::SIZE - 1
+            && array_pos.y > 0
+            && array_pos.y < Self::SIZE - 1
+            && array_pos.z > 0
+            && array_pos.z < Self::SIZE - 1
+        {
+            block = Block::default();
+        }
+        if pos.y == -10 {
+            let checker = (((pos.x ^ pos.y ^ pos.z) as u64 % 8) * 16 + 0x40) as u8;
+            block = Block {
+                color: Some(
+                    RgbColor {
+                        r: checker,
+                        g: checker,
+                        b: checker,
+                    }
+                    .to_packed(),
+                ),
+            };
+        }
+        const SPHERES: &[(Vec3D<i64>, i64, Option<PackedColor>)] = &[
+            (
+                Vec3D { x: 0, y: -5, z: 15 },
+                3 * 3,
+                Some(
+                    RgbColor {
+                        r: 0x80,
+                        g: 0x80,
+                        b: 0x80,
+                    }
+                    .to_packed(),
+                ),
+            ),
             (
                 Vec3D {
                     x: -5,
@@ -84,40 +147,57 @@ impl World {
                     z: -5,
                 },
                 3 * 3,
-                Color(3),
+                Some(
+                    RgbColor {
+                        r: 0xFF,
+                        g: 0,
+                        b: 0,
+                    }
+                    .to_packed(),
+                ),
             ),
             (
                 Vec3D {
                     x: -5,
                     y: 5,
-                    z: 5,
+                    z: -15,
                 },
                 3 * 3,
-                Color(6),
+                Some(
+                    RgbColor {
+                        r: 0,
+                        g: 0xFF,
+                        b: 0,
+                    }
+                    .to_packed(),
+                ),
             ),
             (
-                Vec3D {
-                    x: 5,
-                    y: 5,
-                    z: -5,
-                },
+                Vec3D { x: 5, y: 5, z: -5 },
                 3 * 3,
-                Color(5),
+                Some(
+                    RgbColor {
+                        r: 0,
+                        g: 0,
+                        b: 0xFF,
+                    }
+                    .to_packed(),
+                ),
             ),
             (
                 Vec3D {
                     x: 5,
                     y: -5,
-                    z: 5,
+                    z: -15,
                 },
                 3 * 3,
-                Color(7),
+                Some(RgbColor::white().to_packed()),
             ),
         ];
         let mut sphere_idx = 0;
         while sphere_idx < SPHERES.len() {
             let (sphere_pos, r_sq, sphere_color) = SPHERES[sphere_idx];
-            if pos.sub_const(sphere_pos).abs_sq_const() <= r_sq {
+            if pos.sub_const(sphere_pos).abs_sq_const() < r_sq {
                 block.color = sphere_color;
             }
             sphere_idx += 1;
@@ -135,7 +215,8 @@ impl World {
                 array_pos.z = 0;
                 while array_pos.z < Self::SIZE {
                     let pos = Self::from_array_pos(array_pos);
-                    retval.blocks[array_pos.z][array_pos.y][array_pos.x] = Self::init_block(pos);
+                    retval.blocks[array_pos.z][array_pos.y][array_pos.x] =
+                        Self::init_block(pos, array_pos);
                     array_pos.z += 1;
                 }
                 array_pos.y += 1;
@@ -279,16 +360,34 @@ impl World {
                 let right_factor = (Fix64::from(x as i64) - screen_x_center) * right_factor_inc;
                 let down_factor = (Fix64::from(y as i64) - screen_y_center) * down_factor_inc;
                 let dir = forward + right * right_factor + down * down_factor;
-                let mut color = Color::default();
-                self.cast_ray(start, dir, |_pos, block| {
+                let mut color = None;
+                let mut prev_pos = None;
+                let mut delta = Vec3D { x: 0, y: 0, z: 0 };
+                self.cast_ray(start, dir, |pos, block| {
                     if block.is_empty() {
+                        prev_pos = Some(pos);
                         ControlFlow::Continue(())
                     } else {
                         color = block.color;
+                        if let Some(prev_pos) = prev_pos {
+                            delta = pos - prev_pos;
+                        }
                         ControlFlow::Break(())
                     }
                 });
-                *pixel = color;
+                let color = color.map_or(RgbColor::black(), RgbColor::from_packed);
+                let factor = if delta.x != 0 {
+                    Fix64::from_rat(3, 4)
+                } else if delta.y != 0 {
+                    Fix64::from_rat(2, 3)
+                } else {
+                    Fix64::from_int(1)
+                };
+                *pixel = RgbColor::from_vec3d(
+                    color
+                        .as_vec3d()
+                        .map(|v| (Fix64::from_int(v as i64) * factor).round() as u8),
+                );
             }
         }
     }
